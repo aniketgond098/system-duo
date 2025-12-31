@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SYSTEM v20 // VISIBILITY</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap');
+
+        :root {
+            --theme-main: #06b6d4;
+            --theme-glow: rgba(6, 182, 212, 0.6);
+            --bg-dark: #020617;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), 
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            color: #e2e8f0;
+            font-family: 'Rajdhani', sans-serif;
+            transition: 0.5s;
+            overflow-x: hidden; 
+        }
+
+        .font-header { font-family: 'Orbitron', sans-serif; }
+        .text-theme { color: var(--theme-main); text-shadow: 0 0 10px var(--theme-glow); }
+        .border-theme { border-color: var(--theme-main); }
+        .bg-theme { background-color: var(--theme-main); }
+        .shadow-theme { box-shadow: 0 0 20px var(--theme-glow); }
+
+        #loginScreen {
+            position: fixed; inset: 0; z-index: 50;
+            background: #000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .char-card {
+            width: 100%; max-width: 200px; height: 280px;
+            border: 1px solid #333; background: #0f172a;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.3s; position: relative; overflow: hidden; margin: 10px;
+        }
+        .char-card:hover { transform: scale(1.05); border-color: white; }
+        .p1-card:hover { border-color: #06b6d4; box-shadow: 0 0 30px rgba(6,182,212,0.4); }
+        .p2-card:hover { border-color: #f472b6; box-shadow: 0 0 30px rgba(244,114,182,0.4); }
+
+        .panel {
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 20px rgba(0,0,0,0.6);
+            backdrop-filter: blur(10px);
+            transition: 0.3s;
+        }
+        .panel:hover { border-color: var(--theme-main); }
+
+        .bar-bg { background: #0f172a; height: 8px; width: 100%; border: 1px solid #334155; }
+        .bar-fill { height: 100%; background: var(--theme-main); box-shadow: 0 0 10px var(--theme-main); transition: width 0.5s; }
+
+        .heat-container { overflow-x: auto; padding-bottom: 5px; }
+        .heat-grid { display: grid; grid-template-columns: repeat(14, 1fr); gap: 4px; min-width: 300px; }
+        .heat-box { aspect-ratio: 1; border-radius: 2px; background: #1e293b; transition: 0.3s; }
+        .heat-active { background: var(--theme-main); box-shadow: 0 0 5px var(--theme-main); opacity: 0.8; }
+
+        .shadow-card {
+            position: relative; aspect-ratio: 0.7; border: 1px solid #334155;
+            overflow: hidden; transition: 0.3s; background: #000;
+        }
+        /* UPDATED: BRIGHTNESS INCREASED FROM 0.3 TO 0.7 */
+        .shadow-img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(100%) brightness(0.7); transition: 0.5s; }
+        .shadow-unlocked { border: 1px solid var(--theme-main); box-shadow: 0 0 20px var(--theme-glow); }
+        .shadow-unlocked .shadow-img { filter: grayscale(0%) brightness(1.1); transform: scale(1.05); }
+        .shadow-overlay { 
+            position: absolute; inset: 0; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            z-index: 10; text-align: center; padding: 5px;
+            background: linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.4));
+        }
+
+        @keyframes pulse-red { 0% {box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);} 70% {box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);} 100% {box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);} }
+        .animate-danger { animation: pulse-red 2s infinite; border-color: #ef4444 !important; }
+        
+        #alertOverlay, #modalOverlay { display: none; }
+    </style>
+</head>
+<body class="min-h-screen pb-20">
+
+    <div id="loginScreen">
+        <h1 class="font-header text-3xl md:text-5xl text-white mb-2 tracking-widest text-center">SYSTEM LOGIN</h1>
+        <p class="text-gray-500 mb-8 text-xs md:text-sm tracking-[0.3em]">SELECT AVATAR</p>
+        
+        <div class="flex flex-col md:flex-row gap-4 md:gap-8 justify-center items-center w-full">
+            <div onclick="login('p1')" class="char-card p1-card group">
+                <div class="text-5xl md:text-6xl mb-4 group-hover:scale-110 transition">🧑‍💻</div>
+                <h2 class="font-header text-xl md:text-2xl text-cyan-400 group-hover:text-cyan-300">ANIKET</h2>
+                <p class="text-[10px] md:text-xs text-gray-500 mt-2">MONARCH</p>
+                <div class="absolute bottom-0 w-full h-1 bg-cyan-500"></div>
+            </div>
+            <div onclick="login('p2')" class="char-card p2-card group">
+                <div class="text-5xl md:text-6xl mb-4 group-hover:scale-110 transition">👩‍🎨</div>
+                <h2 class="font-header text-xl md:text-2xl text-pink-400 group-hover:text-pink-300">AKANKSHA</h2>
+                <p class="text-[10px] md:text-xs text-gray-500 mt-2">RULER</p>
+                <div class="absolute bottom-0 w-full h-1 bg-pink-500"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="alertOverlay" class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
+        <div class="bg-black border-2 border-theme p-6 text-center w-full max-w-sm shadow-theme">
+            <h2 id="alertTitle" class="font-header text-2xl md:text-3xl text-theme mb-2">SYSTEM ALERT</h2>
+            <div class="h-px w-full bg-gray-800 mb-4"></div>
+            <p id="alertMsg" class="text-lg text-white font-bold tracking-widest mb-8">MESSAGE</p>
+            <button onclick="closeAlert()" class="w-full border border-theme text-theme px-8 py-3 hover:bg-theme hover:text-black font-bold tracking-widest transition">ACCEPT</button>
+        </div>
+    </div>
+
+    <div id="modalOverlay" class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
+        <div class="bg-black border-2 border-theme p-6 w-full max-w-sm shadow-theme">
+            <h2 class="font-header text-xl text-theme mb-4">NEW DAILY TASK</h2>
+            <input type="text" id="modalInput" placeholder="Task Name (e.g. 50 Pushups)" class="w-full bg-gray-900 border border-gray-700 p-3 text-white mb-4 outline-none focus:border-theme">
+            <p class="text-xs text-gray-500 mb-2">SELECT ATTRIBUTE:</p>
+            <div class="flex gap-2 mb-6">
+                <button onclick="confirmDaily('STR')" class="flex-1 bg-red-900/30 border border-red-900 text-red-500 py-2 hover:bg-red-500 hover:text-white transition font-bold">STR</button>
+                <button onclick="confirmDaily('INT')" class="flex-1 bg-blue-900/30 border border-blue-900 text-blue-500 py-2 hover:bg-blue-500 hover:text-white transition font-bold">INT</button>
+                <button onclick="confirmDaily('DIS')" class="flex-1 bg-yellow-900/30 border border-yellow-900 text-yellow-500 py-2 hover:bg-yellow-500 hover:text-white transition font-bold">DIS</button>
+            </div>
+            <button onclick="document.getElementById('modalOverlay').style.display='none'" class="w-full text-gray-500 text-xs hover:text-white">CANCEL</button>
+        </div>
+    </div>
+
+    <div id="dashboard" class="hidden p-4 max-w-7xl mx-auto">
+        <header class="mb-6 flex flex-col md:flex-row justify-between md:items-end border-b border-gray-800 pb-4 gap-4">
+            <div>
+                <button onclick="logout()" class="text-[10px] text-gray-500 hover:text-theme mb-1 font-bold tracking-widest cursor-pointer border border-gray-800 px-2 py-1 rounded">&lt; SWITCH USER</button>
+                <h1 class="text-3xl md:text-5xl font-header font-bold text-white tracking-tighter text-theme mt-1" id="playerName">PLAYER</h1>
+                <p class="text-xs md:text-sm text-gray-400 tracking-[0.2em] font-bold">SYSTEM ONLINE</p>
+            </div>
+            <div class="text-right">
+                <div class="text-[10px] md:text-xs text-gray-500 font-bold mb-1">STREAK: <span id="streakVal" class="text-theme">0</span> DAYS</div>
+                <div class="font-header text-xl md:text-2xl text-theme text-glow"><span id="totalHours">0</span> HRS</div>
+                
+                <div class="flex gap-2 justify-end mt-2">
+                    <button onclick="exportData()" class="text-[10px] border border-gray-600 text-gray-400 px-3 py-1 hover:bg-white hover:text-black transition">BACKUP</button>
+                    <button onclick="importData()" class="text-[10px] border border-gray-600 text-gray-400 px-3 py-1 hover:bg-white hover:text-black transition">RESTORE</button>
+                    <button onclick="hardReset()" class="text-[10px] border border-red-900 text-red-500 px-3 py-1 hover:bg-red-600 hover:text-white transition font-bold bg-red-900/10">FACTORY RESET</button>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <aside class="lg:col-span-3 space-y-6">
+                <div class="panel p-4 md:p-6">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-14 h-14 md:w-16 md:h-16 bg-black border-2 border-theme flex items-center justify-center shadow-theme">
+                            <span id="rankBadge" class="text-3xl md:text-4xl font-header font-bold text-white">E</span>
+                        </div>
+                        <div>
+                            <div class="text-[10px] md:text-xs text-gray-400 font-bold">LEVEL</div>
+                            <div id="lvlDisplay" class="text-2xl md:text-3xl font-header font-bold text-white leading-none">1</div>
+                        </div>
+                    </div>
+                    <div class="mb-1 flex justify-between text-xs text-theme font-bold"><span>EXP</span><span id="xpText">0</span></div>
+                    <div class="bar-bg mb-4"><div id="xpBar" class="bar-fill" style="width: 0%"></div></div>
+                    <div class="grid grid-cols-2 gap-2 md:gap-4 border-t border-gray-800 pt-4 mb-4">
+                        <div><p class="text-[10px] text-gray-500">STR</p><p id="valSTR" class="text-lg md:text-xl font-bold text-white">10</p></div>
+                        <div><p class="text-[10px] text-gray-500">INT</p><p id="valINT" class="text-lg md:text-xl font-bold text-white">10</p></div>
+                        <div><p class="text-[10px] text-gray-500">DIS</p><p id="valDIS" class="text-lg md:text-xl font-bold text-white">10</p></div>
+                        <div><p class="text-[10px] text-gray-500">GOLD</p><p id="valGOLD" class="text-lg md:text-xl font-bold text-yellow-400">0</p></div>
+                    </div>
+                    <div class="pt-4 border-t border-gray-800"><p class="text-[10px] text-gray-500 font-bold mb-1">ACTIVITY LOG</p><div class="heat-container"><div id="heatmap" class="heat-grid"></div></div></div>
+                    <div class="mt-4 pt-4 border-t border-gray-800"><canvas id="statChart"></canvas></div>
+                </div>
+                <div class="panel p-4">
+                    <div class="flex justify-between items-center mb-3 border-b border-gray-800 pb-2">
+                        <h3 class="font-header text-yellow-400 text-sm">ITEM SHOP</h3>
+                        <button onclick="addShopItem()" class="text-xs bg-gray-800 px-3 py-1 rounded text-yellow-400 hover:text-white border border-gray-700 font-bold">+</button>
+                    </div>
+                    <div id="shopList" class="space-y-2 max-h-[300px] overflow-y-auto"></div>
+                </div>
+            </aside>
+
+            <main class="lg:col-span-6 space-y-6">
+                <div id="redGatePanel" class="panel p-4 md:p-6">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-2">
+                        <div><h2 id="gateTitle" class="font-header text-lg md:text-xl text-red-500">RED GATE (FOCUS)</h2><p class="text-[10px] md:text-xs text-gray-500">Giving up incurs Gold Debt.</p></div>
+                        <div id="timerDisplay" class="font-header text-4xl md:text-5xl text-white self-center md:self-auto">00:00</div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2" id="timerControls">
+                        <button onclick="startRedGate(25)" class="bg-red-900/20 border border-red-900 hover:bg-red-600 text-red-500 py-3 font-bold transition text-sm">25m</button>
+                        <button onclick="startRedGate(45)" class="bg-red-900/20 border border-red-900 hover:bg-red-600 text-red-500 py-3 font-bold transition text-sm">45m</button>
+                        <button onclick="startRedGate(60)" class="bg-red-900/20 border border-red-900 hover:bg-red-600 text-red-500 py-3 font-bold transition text-sm">60m</button>
+                    </div>
+                    <div id="activeGateControls" class="hidden flex gap-2 mt-2">
+                        <button id="pauseBtn" onclick="togglePause()" class="w-1/2 bg-yellow-600/20 border border-yellow-500 text-yellow-500 font-bold py-3">PAUSE</button>
+                        <button onclick="giveUpGate()" class="w-1/2 bg-red-600/20 border border-red-600 text-red-500 font-bold py-3">GIVE UP</button>
+                    </div>
+                </div>
+                <div class="panel p-4 md:p-6 min-h-[400px]">
+                    <div class="flex justify-between items-center mb-4 border-b border-gray-800 pb-2">
+                        <h2 class="font-header text-theme">DAILY SCHEDULE</h2>
+                        <button onclick="openDailyModal()" class="text-xs bg-gray-800 px-3 py-1 rounded hover:text-white text-gray-400 hover:bg-gray-700 font-bold border border-gray-700">ADD TASK</button>
+                    </div>
+                    <div class="mb-6 space-y-2" id="dailyList"></div>
+                    <div class="flex flex-col md:flex-row gap-2 mb-4 border-t border-gray-800 pt-4">
+                        <input id="qInput" type="text" placeholder="One-time Task..." class="w-full md:flex-1 bg-black/50 border border-gray-700 p-3 text-sm text-white outline-none focus:border-theme">
+                        <div class="flex gap-2">
+                            <select id="qType" class="bg-black/50 border border-gray-700 text-gray-300 text-xs p-2"><option value="STR">STR</option><option value="INT">INT</option><option value="DIS">DIS</option></select>
+                            <button onclick="addQuest()" class="flex-1 md:flex-none bg-gray-800 px-6 font-bold text-sm text-theme border border-gray-700 hover:border-theme">ADD</button>
+                        </div>
+                    </div>
+                    <ul id="questList" class="space-y-2"></ul>
+                </div>
+            </main>
+
+            <aside class="lg:col-span-3 space-y-6">
+                <div class="panel p-4">
+                    <h3 class="font-header text-theme text-sm mb-4">SHADOW ARMY</h3>
+                    <div class="grid grid-cols-2 gap-3" id="shadowGrid"></div>
+                </div>
+                <div class="panel p-4">
+                    <h3 class="font-header text-red-500 text-sm mb-3 flex justify-between">BOSS RAIDS <span onclick="addBoss()" class="cursor-pointer text-xs underline">+ADD</span></h3>
+                    <div id="bossList" class="space-y-3"></div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <script>
+        // --- FIREBASE CONFIG (PASTE YOURS HERE) ---
+        const firebaseConfig = {
+            // ... paste your config ...
+            apiKey: "AIzaSyDrogdb3kV-0hmhJNSbm3wGBldAy-Xsxq4",
+
+            authDomain: "system-duo-3a40e.firebaseapp.com",
+
+            databaseURL: "https://system-duo-3a40e-default-rtdb.firebaseio.com",
+
+            projectId: "system-duo-3a40e",
+
+            storageBucket: "system-duo-3a40e.firebasestorage.app",
+            messagingSenderId: "432092554338",
+
+            appId: "1:432092554338:web:02bd5b8eaa2795a09e1d3b"
+
+        };
+        
+        if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+        const dbRef = firebase.database().ref();
+
+        let CURRENT_USER = null;
+        const P1_CONFIG = { name: "Aniket", theme: "#06b6d4" };
+        const P2_CONFIG = { name: "Akanksha", theme: "#f472b6" }; 
+
+        const SHADOW_RANKS = [
+            { hours: 20, name: 'INFANTRY', file: 'infantry.jpeg', icon: '♟️', buff: '+5 Gold per Task' },
+            { hours: 100, name: 'MAGICIAN', file: 'magician.jpg', icon: '🔮', buff: '+20% XP Gain' },
+            { hours: 500, name: 'IGRIS', file: 'igris.jpg', icon: '⚔️', buff: 'Critical Hit (2x Rewards)' },
+            { hours: 1500, name: 'TANK', file: 'tank.jpg', icon: '🛡️', buff: '50% Debt Reduction' },
+            { hours: 3000, name: 'TUSK', file: 'tusk.webp', icon: '👹', buff: '20% Shop Discount' },
+            { hours: 7000, name: 'BERU', file: 'beru.jpg', icon: '👑', buff: 'ALL GAINS +50%' }
+        ];
+
+        let db = {
+            player: { lvl:1, xp:0, xpMax:100, gold:0, stats:{STR:10, INT:10, DIS:10}, totalMin:0, rank:'E', lastLogin:null, streak:0 },
+            dailies: [], quests: [], bosses: [], history: {}, shop: []
+        };
+
+        // --- AUTH & SYNC ---
+        function login(user) {
+            CURRENT_USER = user;
+            const config = user === 'p1' ? P1_CONFIG : P2_CONFIG;
+            document.documentElement.style.setProperty('--theme-main', config.theme);
+            document.documentElement.style.setProperty('--theme-glow', config.theme + '99');
+            document.getElementById('playerName').innerText = config.name;
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            
+            const userRef = dbRef.child('players/' + user);
+            userRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    db = data;
+                    sanitizeData(); 
+                    const today = new Date().toISOString().split('T')[0];
+                    if(db.player.lastLogin !== today) handleNewDay(today);
+                    else render();
+                } else {
+                    save(); 
+                }
+                initChart();
+            });
+        }
+
+        function sanitizeData() {
+            let fixed = false;
+            if(db.dailies) {
+                db.dailies.forEach(d => {
+                    const t = d.type.toUpperCase();
+                    if(t === "STRENGTH" || t === "S") { d.type = "STR"; fixed = true; }
+                    if(t === "INTELLIGENCE" || t === "I") { d.type = "INT"; fixed = true; }
+                    if(t === "DISCIPLINE" || t === "D") { d.type = "DIS"; fixed = true; }
+                });
+            }
+            if(db.quests) {
+                db.quests.forEach(d => {
+                    const t = d.type.toUpperCase();
+                    if(t === "STRENGTH") { d.type = "STR"; fixed = true; }
+                });
+            }
+            if(fixed) save();
+        }
+
+        function handleNewDay(today) {
+            const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+            const yStr = yesterday.toISOString().split('T')[0];
+            if(db.player.lastLogin === yStr) db.player.streak++; else db.player.streak = 1;
+            if(db.dailies) db.dailies.forEach(d => d.done = false);
+            db.player.lastLogin = today;
+            save();
+        }
+
+        function logout() { if(CURRENT_USER) dbRef.child('players/' + CURRENT_USER).off(); location.reload(); }
+        function save() { if(!CURRENT_USER) return; dbRef.child('players/' + CURRENT_USER).set(db); render(); }
+
+        // --- HARD RESET ---
+        function hardReset() {
+            if(!confirm("⚠️ WARNING: FACTORY RESET ⚠️\n\nThis will wipe EVERYTHING.\nNo going back.\n\nAre you sure?")) return;
+            if(!confirm("FINAL CONFIRMATION: Delete all data?")) return;
+            
+            if(CURRENT_USER) {
+                // 1. Wipe Cloud
+                dbRef.child('players/' + CURRENT_USER).set(null); 
+                
+                // 2. Wipe Local Backup
+                const LOCAL_KEY = CURRENT_USER === 'p1' ? 'sys_duo_p1' : 'sys_duo_p2';
+                localStorage.removeItem(LOCAL_KEY);
+                
+                // 3. Reset RAM variable
+                db = {
+                    player: { lvl:1, xp:0, xpMax:100, gold:0, stats:{STR:10, INT:10, DIS:10}, totalMin:0, rank:'E', lastLogin:null, streak:0 },
+                    dailies: [], quests: [], bosses: [], history: {}, shop: []
+                };
+                
+                alertSys("SYSTEM WIPED. REBOOTING...");
+                setTimeout(() => location.reload(), 1000);
+            }
+        }
+
+        // --- RENDER ---
+        function render() {
+            document.getElementById('lvlDisplay').innerText = db.player.lvl;
+            document.getElementById('rankBadge').innerText = db.player.rank;
+            document.getElementById('xpText').innerText = db.player.xp;
+            document.getElementById('valSTR').innerText = db.player.stats.STR;
+            document.getElementById('valINT').innerText = db.player.stats.INT;
+            document.getElementById('valDIS').innerText = db.player.stats.DIS;
+            document.getElementById('totalHours').innerText = (db.player.totalMin/60).toFixed(1);
+            document.getElementById('streakVal').innerText = db.player.streak;
+            const gEl = document.getElementById('valGOLD'); gEl.innerText = db.player.gold;
+            gEl.className = db.player.gold < 0 ? "text-lg md:text-xl font-bold text-red-500 animate-pulse" : "text-lg md:text-xl font-bold text-yellow-400";
+
+            const hGrid = document.getElementById('heatmap'); hGrid.innerHTML = '';
+            for(let i=27; i>=0; i--) {
+                const d = new Date(); d.setDate(d.getDate()-i); const str = d.toISOString().split('T')[0];
+                const val = (db.history && db.history[str]) || 0;
+                let cls = 'heat-box'; if(val > 0) cls += ' heat-active';
+                hGrid.innerHTML += `<div class="${cls}" title="${str}: ${val}" style="opacity:${Math.min(1, val/100 + 0.2)}"></div>`;
+            }
+
+            const sGrid = document.getElementById('shadowGrid'); sGrid.innerHTML = '';
+            const hours = Math.floor(db.player.totalMin / 60);
+            SHADOW_RANKS.forEach(s => {
+                const unlocked = hours >= s.hours;
+                const progress = Math.min(100, (hours/s.hours)*100);
+                sGrid.innerHTML += `
+                    <div class="shadow-card ${unlocked ? 'shadow-unlocked' : ''}">
+                        <img src="${s.file}" class="shadow-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                        <div style="display:none; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:center; background:#111;"><span style="font-size:2em;">${s.icon}</span></div>
+                        <div class="shadow-overlay">
+                            ${!unlocked ? `<div class="text-gray-500 text-[9px] font-bold">LOCKED</div><div class="text-white font-bold text-xs my-1">${s.hours} HRS</div><div class="text-gray-400 text-[8px]">${s.buff}</div><div class="w-1/2 h-1 bg-gray-800 mt-1"><div class="h-full bg-theme" style="width:${progress}%"></div></div>` : `<div class="text-white font-bold tracking-widest mb-1 text-[10px]">${s.name}</div><div class="text-theme text-[8px] font-bold uppercase bg-black/80 px-2 py-1 rounded">${s.buff}</div>`}
+                        </div>
+                    </div>`;
+            });
+
+            const shopList = document.getElementById('shopList'); shopList.innerHTML = '';
+            if(db.shop) db.shop.forEach((item, i) => {
+                shopList.innerHTML += `<div class="flex justify-between items-center p-2 bg-black/40 border border-gray-800 hover:border-theme group"><div onclick="buy(${i})" class="cursor-pointer flex-1"><span class="text-xs text-gray-300 group-hover:text-white">${item.name}</span><span class="text-xs font-bold text-yellow-400 ml-2">${item.cost}G</span></div><div class="hidden group-hover:flex gap-2"><button onclick="editShopItem(${i})" class="text-gray-500 hover:text-white text-xs">✎</button><button onclick="deleteShopItem(${i})" class="text-gray-500 hover:text-red-500 text-xs">×</button></div></div>`;
+            });
+
+            const dList = document.getElementById('dailyList'); dList.innerHTML = '';
+            if(db.dailies) db.dailies.forEach((d, i) => {
+                dList.innerHTML += `<div class="flex justify-between items-center p-3 bg-black/40 border border-gray-800 hover:border-theme group ${d.done ? 'opacity-50' : ''}"><div onclick="toggleDaily(${i})" class="flex-1 cursor-pointer flex items-center gap-2"><span class="text-sm text-gray-300">${d.text}</span><span class="text-[10px] text-gray-600 font-bold">[${d.type}]</span></div><div class="flex items-center gap-2"><div onclick="toggleDaily(${i})" class="w-4 h-4 border border-theme cursor-pointer ${d.done ? 'bg-theme' : ''}"></div><div class="flex md:hidden group-hover:flex gap-2 ml-2"><button onclick="editDaily(${i})" class="text-gray-500 hover:text-white text-xs">✎</button><button onclick="deleteDaily(${i})" class="text-gray-500 hover:text-red-500 text-xs">×</button></div></div></div>`;
+            });
+
+            const qList = document.getElementById('questList'); qList.innerHTML = '';
+            if(db.quests) db.quests.forEach((q, i) => {
+                qList.innerHTML += `<div class="flex justify-between p-2 border-l-2 border-gray-600 bg-gray-900/30"><span class="text-sm ml-2">${q.text}</span><button onclick="completeQuest(${i})" class="text-xs text-theme">[DONE]</button></div>`;
+            });
+
+            const bList = document.getElementById('bossList'); bList.innerHTML = '';
+            if(db.bosses) db.bosses.forEach((b, i) => {
+                const days = Math.ceil((new Date(b.date) - new Date()) / (1000*60*60*24));
+                bList.innerHTML += `<div class="flex justify-between text-xs mb-1"><span class="text-red-400">${b.name}</span><span class="text-white">${days} DAYS</span></div><div class="bar-bg h-1"><div class="bar-fill bg-red-600 shadow-none" style="width: ${Math.min(100, days)}%"></div></div>`;
+            });
+
+            if(statChartInstance) {
+                const c = getComputedStyle(document.documentElement).getPropertyValue('--theme-main');
+                statChartInstance.data.datasets[0].borderColor = c;
+                // UPDATED: SOLID DIAGRAM STYLE (Higher opacity, no dots)
+                statChartInstance.data.datasets[0].backgroundColor = c + '99'; 
+                statChartInstance.data.datasets[0].pointBackgroundColor = 'transparent';
+                statChartInstance.data.datasets[0].pointBorderColor = 'transparent';
+                statChartInstance.data.datasets[0].data = [db.player.stats.STR, db.player.stats.INT, db.player.stats.DIS];
+                statChartInstance.update();
+            }
+        }
+
+        // --- ACTIONS ---
+        function openDailyModal() { document.getElementById('modalOverlay').style.display = 'flex'; document.getElementById('modalInput').value = ''; document.getElementById('modalInput').focus(); }
+        function confirmDaily(type) { const txt = document.getElementById('modalInput').value; if(!txt) { alert("ENTER NAME"); return; } if(!db.dailies) db.dailies = []; db.dailies.push({ text: txt, type: type, done: false }); document.getElementById('modalOverlay').style.display = 'none'; save(); }
+        function editDaily(i) { const t=prompt("Edit:", db.dailies[i].text); if(t){ db.dailies[i].text=t; save(); } }
+        function deleteDaily(i) { if(confirm("Delete?")){ db.dailies.splice(i,1); save(); } }
+        function toggleDaily(i) { if(!db.dailies[i].done) { db.dailies[i].done = true; gain(20, 10, db.dailies[i].type); } }
+        function addQuest() { const txt=document.getElementById('qInput').value; if(txt){ if(!db.quests) db.quests=[]; db.quests.push({text:txt, type:document.getElementById('qType').value}); document.getElementById('qInput').value=''; save(); } }
+        function completeQuest(i) { gain(50, 20, db.quests[i].type); db.quests.splice(i, 1); save(); }
+        function addBoss() { const n=prompt("Name:"); const d=prompt("Date:"); if(n&&d){ if(!db.bosses) db.bosses=[]; db.bosses.push({name:n, date:d}); save(); } }
+        function addShopItem() { const n=prompt("Name:"); if(!n)return; const c=parseInt(prompt("Cost:")); if(isNaN(c))return; if(!db.shop)db.shop=[]; db.shop.push({name:n, cost:c}); save(); }
+        function editShopItem(i) { const item=db.shop[i]; const n=prompt("Edit Name:",item.name); const c=prompt("Edit Cost:",item.cost); if(n&&c){ db.shop[i]={name:n,cost:parseInt(c)}; save(); } }
+        function deleteShopItem(i) { if(confirm("Remove item?")) { db.shop.splice(i, 1); save(); } }
+        function buy(i) { const item=db.shop[i]; let cost=item.cost; if(isUnlocked('TUSK'))cost=Math.floor(cost*0.8); if(db.player.gold>=cost){ if(confirm(`Buy ${item.name}?`)){ db.player.gold-=cost; alertSys(`BOUGHT: ${item.name}`); save(); } } else alertSys("INSUFFICIENT GOLD"); }
+
+        function alertSys(msg) { document.getElementById('alertMsg').innerText=msg; document.getElementById('alertOverlay').style.display='flex'; }
+        function closeAlert() { document.getElementById('alertOverlay').style.display='none'; }
+        
+        function isUnlocked(name) { const h = Math.floor(db.player.totalMin / 60); const s = SHADOW_RANKS.find(s => s.name === name); return s && h >= s.hours; }
+        function logActivity(val) { const today = new Date().toISOString().split('T')[0]; if(!db.history) db.history = {}; if(!db.history[today]) db.history[today] = 0; db.history[today] += val; save(); }
+        function gain(xp, gold, type) { db.player.xp += xp; db.player.gold += gold; db.player.stats[type]++; if(db.player.xp >= db.player.xpMax) db.player.lvl++; let r='E'; if(db.player.xp>12000)r='D'; if(db.player.xp>27600)r='C'; if(db.player.xp>47800)r='B'; if(db.player.xp>74200)r='A'; if(db.player.xp>108000)r='S'; if(r !== db.player.rank) { db.player.rank = r; alertSys(`RANK UP! NOW RANK ${r}`); } logActivity(10); save(); }
+        function addFocusTime(mins) { db.player.totalMin += mins; logActivity(mins); save(); }
+
+        let timer, timeLeft, isPaused;
+        function startRedGate(mins) { if(timeLeft>0)return; if(!confirm(`Start ${mins}m?`))return; timeLeft=mins*60; isPaused=false; document.getElementById('timerControls').classList.add('hidden'); document.getElementById('activeGateControls').classList.remove('hidden'); document.getElementById('redGatePanel').classList.add('animate-danger'); timer=setInterval(()=>{ if(!isPaused){ timeLeft--; const m=Math.floor(timeLeft/60).toString().padStart(2,'0'); const s=(timeLeft%60).toString().padStart(2,'0'); document.getElementById('timerDisplay').innerText=`${m}:${s}`; if(timeLeft<=0) { clearInterval(timer); addFocusTime(mins); gain(mins*5, mins*2, 'INT'); alertSys("CLEARED"); resetGate(); } } },1000); }
+        function togglePause() { isPaused=!isPaused; document.getElementById('pauseBtn').innerText=isPaused?"RESUME":"PAUSE"; }
+        function giveUpGate() { if(!confirm("Give up?"))return; db.player.gold-=100; alertSys("FAILED (-100G)"); clearInterval(timer); resetGate(); save(); }
+        function resetGate() { timeLeft=0; document.getElementById('timerControls').classList.remove('hidden'); document.getElementById('activeGateControls').classList.add('hidden'); document.getElementById('redGatePanel').classList.remove('animate-danger'); document.getElementById('timerDisplay').innerText="00:00"; }
+
+        let statChartInstance;
+        function initChart() {
+            if(statChartInstance) statChartInstance.destroy();
+            const ctx = document.getElementById('statChart').getContext('2d');
+            const color = getComputedStyle(document.documentElement).getPropertyValue('--theme-main') || '#06b6d4';
+            statChartInstance = new Chart(ctx, {
+                type: 'radar',
+                data: { labels: ['STR', 'INT', 'DIS'], datasets: [{ label: 'Stats', data: [10,10,10], backgroundColor: color + '99', borderColor: color, borderWidth: 2, pointRadius: 0 }] },
+                options: { 
+                    scales: { 
+                        r: { 
+                            grid: { color: '#334155', lineWidth: 1 }, 
+                            angleLines: { color: '#334155' }, 
+                            ticks: { display: false, backdropColor: 'transparent' }, 
+                            pointLabels: { color:'#94a3b8', font:{family:'Orbitron'} } 
+                        } 
+                    }, 
+                    plugins: { legend: { display: false } } 
+                }
+            });
+        }
+        
+        function exportData() { const s = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db)); const a = document.createElement('a'); a.setAttribute("href", s); a.setAttribute("download", CURRENT_USER + "_backup.json"); a.click(); }
+        function importData() { document.getElementById('importFile').click(); }
+        function loadFile(input) { const f = input.files[0]; const r = new FileReader(); r.onload = function(e) { try { db = JSON.parse(e.target.result); save(); alertSys("RESTORED"); } catch(err) { alertSys("ERROR"); } }; r.readAsText(f); }
+    </script>
+</body>
+</html>
