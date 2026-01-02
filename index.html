@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SYSTEM v54 // ANIKET & AKANKSHA</title>
+    <title>SYSTEM v55</title>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
 
@@ -29,7 +29,7 @@
         
         :root {
             /* DYNAMIC VARIABLES */
-            --theme-main: #06b6d4; /* Default Aniket Blue */
+            --theme-main: #06b6d4;
             --theme-glow: rgba(6, 182, 212, 0.6);
             --bg-dark: #050505;
         }
@@ -45,7 +45,6 @@
         .btn { border: 1px solid var(--theme-main); color: var(--theme-main); padding: 8px 12px; font-size: 0.75rem; font-weight: bold; transition: 0.2s; cursor: pointer; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; }
         .btn:hover { background: var(--theme-main); color: black; }
         
-        /* SPECIFIC BUTTONS */
         .btn-red { border-color: #ef4444; color: #ef4444; }
         .btn-red:hover { background: #ef4444; color: white; }
         .btn-purple { border-color: #9333ea; color: #9333ea; }
@@ -78,7 +77,7 @@
         #chatBox { height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 10px; scrollbar-width: thin; background: rgba(0,0,0,0.3); border-radius: 6px; }
         .msg { font-size: 0.85rem; padding: 8px 12px; border-radius: 6px; max-width: 85%; word-wrap: break-word; }
         .msg-me { align-self: flex-end; background: rgba(255,255,255,0.1); border-right: 2px solid var(--theme-main); text-align: right; }
-        .msg-partner { align-self: flex-start; background: rgba(255, 255, 255, 0.05); border-left: 2px solid #666; }
+        .msg-partner { align-self: flex-start; background: rgba(255, 255, 255, 0.08); border-left: 2px solid #666; }
         
         #alertOverlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 60; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
         #modalOverlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 70; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
@@ -99,8 +98,8 @@
     <input type="file" id="imgUpload" accept="image/*" style="display: none;" onchange="handleImageUpload(event)">
 
     <div id="loginScreen">
-        <h1 class="font-header text-5xl mb-2 text-white tracking-widest text-center">SYSTEM v54</h1>
-        <p class="text-gray-500 text-xs tracking-[0.5em] mb-8">AUTHENTICATION REQUIRED</p>
+        <h1 class="font-header text-5xl mb-2 text-white tracking-widest text-center">SYSTEM v55</h1>
+        <p class="text-gray-500 text-xs tracking-[0.5em] mb-8">INTEGRATED BUILD</p>
         <div class="flex flex-wrap justify-center">
             <div onclick="login('p1')" class="login-card"><div class="text-4xl mb-2">🧑‍💻</div><div class="font-header text-cyan-400">ANIKET</div></div>
             <div onclick="login('p2')" class="login-card"><div class="text-4xl mb-2">👩‍🎨</div><div class="font-header text-pink-400">AKANKSHA</div></div>
@@ -151,7 +150,7 @@
                 <div class="panel p-5">
                     <div class="flex items-center gap-4 mb-4">
                         <div class="level-box" id="lvl">1</div>
-                        <div><div class="text-[10px] text-gray-400 font-bold tracking-widest">LEVEL</div><div class="font-header text-xl text-dynamic leading-none" id="rankBadge">E</div></div>
+                        <div><div class="text-[10px] text-gray-400 font-bold tracking-widest">LEVEL</div><div class="font-header text-xl text-theme leading-none" id="rankBadge">E</div></div>
                     </div>
                     <div class="flex justify-between text-xs mb-1 text-gray-400"><span>EXP</span><span class="text-dynamic font-bold" id="xp">0 / 800</span></div>
                     <div class="bar-bg mb-5"><div id="xpBar" class="bar-fill" style="width:0%"></div></div>
@@ -199,7 +198,6 @@
                         <div id="dungeonTasks" class="space-y-2 mb-4"></div>
                         <button onclick="giveUpDungeon()" class="btn w-full btn-gray">ABANDON DUNGEON</button>
                     </div>
-
                 </div>
 
                 <div id="dungeonEntryPanel" class="panel p-6 flex justify-between items-center border border-purple-900/50 bg-purple-900/10">
@@ -263,6 +261,7 @@
     </div>
 
     <script>
+        // --- CONFIGURATION ---
         const firebaseConfig = {
             apiKey: "AIzaSyAuEWEdM6Niq6ATW_9pqjx-ThOEghOKcDk",
             authDomain: "system-duo-40a99.firebaseapp.com",
@@ -304,7 +303,7 @@
                 if(val) { 
                     db = val; 
                     if(!db.dailies) db.dailies=[]; if(!db.quests) db.quests=[]; if(!db.shop) db.shop=[]; if(!db.bosses) db.bosses=[];
-                    if(!db.player.totalMin) db.player.totalMin = 0;
+                    if(db.player.totalMin === undefined) db.player.totalMin = 0;
                     render(); checkDeadlines(); checkLocalTimer(); checkLocalDungeon();
                 } else { save(); }
             });
@@ -325,8 +324,31 @@
                 const note = snap.val();
                 if(note) { showNotification(note.msg); snap.ref.remove(); }
             });
-
             dbRef.child('chats').limitToLast(20).on('child_added', snap => { renderChat(snap.val()); });
+        }
+
+        // --- MATH FIX ---
+        function completeGateLogic() {
+            if(gateTimerInt) clearInterval(gateTimerInt);
+            if(wakeLock) wakeLock.release();
+            
+            // SAFETY FORCE LOAD
+            const savedMins = localStorage.getItem(`sys_${CURRENT_USER}_gate_mins`);
+            if(activeMins === 0 && savedMins) activeMins = parseInt(savedMins);
+
+            if(activeMins > 0) {
+                gain(activeMins * 5, activeMins * 2, 'INT');
+                let currentTotal = parseFloat(db.player.totalMin);
+                if(isNaN(currentTotal)) currentTotal = 0;
+                db.player.totalMin = currentTotal + parseFloat(activeMins);
+                
+                localStorage.removeItem(`sys_${CURRENT_USER}_gate_end`);
+                localStorage.removeItem(`sys_${CURRENT_USER}_gate_mins`);
+                resetGate();
+                save();
+                pushToPartner("COMPLETED A GATE");
+                showNotification("GATE COMPLETE");
+            }
         }
 
         // --- DUNGEON LOGIC ---
@@ -338,10 +360,8 @@
             let tasks = [];
             inputs.forEach(inp => { if(inp.value.trim()) tasks.push({text: inp.value.trim(), done: false}); });
             if(tasks.length === 0) { alert("ADD OBJECTIVE"); return; }
-            
             if(gateTimerInt) clearInterval(gateTimerInt);
             if(dungeonTimerInt) clearInterval(dungeonTimerInt);
-            
             SFX.click(); document.getElementById('dungeonSetupModal').style.display='none';
             const end = Date.now() + (mins * 60000);
             activeDungeon = { tasks: tasks, endTime: end, totalMins: mins };
@@ -356,9 +376,7 @@
             document.getElementById('dungeonEntryPanel').classList.add('hidden');
             document.getElementById('dungeonUI').classList.remove('hidden');
             document.getElementById('actionPanel').classList.add('animate-dungeon');
-            
             renderDungeonTasks();
-            
             if(dungeonTimerInt) clearInterval(dungeonTimerInt);
             dungeonTimerInt = setInterval(() => {
                 const diff = activeDungeon.endTime - Date.now();
@@ -404,12 +422,10 @@
             if(dungeonTimerInt) clearInterval(dungeonTimerInt);
             localStorage.removeItem(`sys_${CURRENT_USER}_dungeon`);
             updatePublicState(null);
-            
             document.getElementById('actionPanel').classList.remove('animate-dungeon');
             document.getElementById('redGateUI').classList.remove('hidden');
             document.getElementById('dungeonEntryPanel').classList.remove('hidden');
             document.getElementById('dungeonUI').classList.add('hidden');
-            
             if(win) {
                 SFX.success(); 
                 gain(200, 100, 'INT');
@@ -417,10 +433,7 @@
                 alertMsg("DUNGEON CLEARED!");
                 pushToPartner("CONQUERED A DUNGEON");
                 save();
-            } else {
-                SFX.fail();
-                alertMsg("DUNGEON FAILED");
-            }
+            } else { SFX.fail(); alertMsg("DUNGEON FAILED"); }
             activeDungeon = null;
         }
 
@@ -462,25 +475,11 @@
             }
         }
 
-        function completeGateLogic() {
-            if(gateTimerInt) clearInterval(gateTimerInt);
-            if(wakeLock) wakeLock.release();
-            gain(activeMins * 5, activeMins * 2, 'INT');
-            db.player.totalMin = Number(db.player.totalMin) + Number(activeMins);
-            localStorage.removeItem(`sys_${CURRENT_USER}_gate_end`);
-            localStorage.removeItem(`sys_${CURRENT_USER}_gate_mins`);
-            resetGate();
-            save();
-            pushToPartner("COMPLETED A GATE");
-            showNotification("GATE COMPLETE");
-        }
-
         function runTimer() {
             if(gateTimerInt) clearInterval(gateTimerInt);
             document.getElementById('preGate').classList.add('hidden');
             document.getElementById('activeGate').classList.remove('hidden');
             document.getElementById('activeGate').classList.add('flex');
-            
             gateTimerInt = setInterval(() => {
                 const now = Date.now();
                 if(!isPaused) {
@@ -512,6 +511,7 @@
             pushToPartner("FAILED A GATE"); save(); 
         }
 
+        // --- DATA ---
         function openModal(type) { currentType = type; document.getElementById('modalOverlay').style.display='flex'; }
         function confirmAddTask(attr) {
             const txt = document.getElementById('modalInput').value; if(!txt) return;
@@ -521,10 +521,8 @@
         }
 
         function getLevelConfig(lvl) {
-            if (lvl <= 10) return { rank: 'E', max: 800 }; 
-            if (lvl <= 20) return { rank: 'D', max: 1200 };
-            if (lvl <= 30) return { rank: 'C', max: 1600 };
-            if (lvl <= 40) return { rank: 'B', max: 2000 };
+            if (lvl <= 10) return { rank: 'E', max: 800 }; if (lvl <= 20) return { rank: 'D', max: 1200 };
+            if (lvl <= 30) return { rank: 'C', max: 1600 }; if (lvl <= 40) return { rank: 'B', max: 2000 };
             return { rank: 'S', max: 3000 };
         }
 
@@ -533,23 +531,14 @@
             db.player.gold += gold;
             if(db.player.stats[stat] === undefined) db.player.stats[stat] = 0;
             if(xp > 0) db.player.stats[stat]++; else db.player.stats[stat] = Math.max(0, db.player.stats[stat] - 1);
-
             const config = getLevelConfig(db.player.lvl);
-            db.player.xpMax = config.max;
-            db.player.xp += xp;
-
-            if(db.player.xp >= db.player.xpMax) { 
-                db.player.lvl++; db.player.xp = 0; alertMsg("LEVEL UP! RANK " + getLevelConfig(db.player.lvl).rank); SFX.success(); pushToPartner("LEVEL UP: " + db.player.lvl);
-            } else if (db.player.xp < 0) {
-                if (db.player.lvl > 1) { db.player.lvl--; db.player.xp = db.player.xpMax + db.player.xp; alertMsg("LEVEL DOWN!"); SFX.fail(); } 
-                else { db.player.xp = 0; }
-            }
-            save();
+            db.player.xpMax = config.max; db.player.xp += xp;
+            if(db.player.xp >= db.player.xpMax) { db.player.lvl++; db.player.xp = 0; alertMsg("LEVEL UP! RANK " + getLevelConfig(db.player.lvl).rank); SFX.success(); pushToPartner("LEVEL UP: " + db.player.lvl); } 
+            else if (db.player.xp < 0) { if (db.player.lvl > 1) { db.player.lvl--; db.player.xp = db.player.xpMax + db.player.xp; alertMsg("LEVEL DOWN!"); SFX.fail(); } else { db.player.xp = 0; } } save();
         }
 
         function toggleTask(type, i) {
-            const list = type === 'daily' ? db.dailies : db.quests;
-            list[i].done = !list[i].done;
+            const list = type === 'daily' ? db.dailies : db.quests; list[i].done = !list[i].done;
             if(list[i].done) { SFX.success(); gain(20, 10, list[i].type); pushToPartner("COMPLETED: " + list[i].text); if(type === 'quest') { setTimeout(()=>{ list.splice(i, 1); save(); }, 500); } } 
             else { SFX.fail(); gain(-20, -10, list[i].type); }
             save();
@@ -562,57 +551,11 @@
 
         function render() {
             const config = getLevelConfig(db.player.lvl);
-            document.getElementById('rankBadge').innerText = config.rank;
-            document.getElementById('lvl').innerText = db.player.lvl;
-            document.getElementById('xp').innerText = db.player.xp + " / " + config.max;
-            
-            document.getElementById('valSTR').innerText = db.player.stats.STR || 0;
-            document.getElementById('valINT').innerText = db.player.stats.INT || 0;
-            document.getElementById('valDIS').innerText = db.player.stats.DIS || 0;
-            document.getElementById('valGOLD').innerText = db.player.gold || 0;
-            document.getElementById('xpBar').style.width = Math.min(100, (db.player.xp / config.max)*100) + '%';
-            document.getElementById('totalHours').innerText = ((db.player.totalMin || 0) / 60).toFixed(1);
-
-            document.getElementById('dailyList').innerHTML = db.dailies.map((t,i) => buildHtml(t,i,'daily')).join('');
-            document.getElementById('questList').innerHTML = db.quests.map((t,i) => buildHtml(t,i,'quest')).join('');
-            document.getElementById('shopList').innerHTML = db.shop.map((item,i) => `<div class="flex justify-between items-center bg-black/20 p-2 mb-1 border border-gray-700 hover:border-theme rounded"><span class="text-xs text-gray-300">${item.name}</span><div class="flex gap-2"><span class="text-xs text-yellow-400 font-bold">${item.cost}G</span><button onclick="buyItem(${i})" class="text-[10px] text-theme border border-theme px-1 rounded">BUY</button><button onclick="delShopItem(${i})" class="text-[10px] text-red-500">×</button></div></div>`).join('');
-            document.getElementById('bossList').innerHTML = db.bosses.map((b,i) => {
-                const days = Math.ceil((new Date(b.date) - new Date()) / (86400000));
-                const critical = days <= 20;
-                const css = critical ? "border-red-500 bg-red-900/40 boss-shake threat-critical" : "bg-black/30 border-gray-700";
-                const icon = critical ? "⚠️ " : "";
-                return `<div class="flex justify-between text-xs mb-1 p-2 border rounded ${css}"><span class="${critical ? 'text-white font-bold' : 'text-gray-400'}">${icon}${b.name}</span><span class="${critical ? 'text-red-300' : 'text-gray-500'}">${days} DAYS</span><button onclick="delBoss(${i})" class="text-red-600">×</button></div>`
-            }).join('');
+            document.getElementById('rankBadge').innerText = config.rank; document.getElementById('lvl').innerText = db.player.lvl; document.getElementById('xp').innerText = db.player.xp + " / " + config.max; document.getElementById('valSTR').innerText = db.player.stats.STR || 0; document.getElementById('valINT').innerText = db.player.stats.INT || 0; document.getElementById('valDIS').innerText = db.player.stats.DIS || 0; document.getElementById('valGOLD').innerText = db.player.gold || 0; document.getElementById('xpBar').style.width = Math.min(100, (db.player.xp / config.max)*100) + '%'; document.getElementById('totalHours').innerText = ((db.player.totalMin || 0) / 60).toFixed(1);
+            document.getElementById('dailyList').innerHTML = db.dailies.map((t,i) => buildHtml(t,i,'daily')).join(''); document.getElementById('questList').innerHTML = db.quests.map((t,i) => buildHtml(t,i,'quest')).join(''); document.getElementById('shopList').innerHTML = db.shop.map((item,i) => `<div class="flex justify-between items-center bg-black/20 p-2 mb-1 border border-gray-700 hover:border-theme rounded"><span class="text-xs text-gray-300">${item.name}</span><div class="flex gap-2"><span class="text-xs text-yellow-400 font-bold">${item.cost}G</span><button onclick="buyItem(${i})" class="text-[10px] text-theme border border-theme px-1 rounded">BUY</button><button onclick="delShopItem(${i})" class="text-[10px] text-red-500">×</button></div></div>`).join(''); document.getElementById('bossList').innerHTML = db.bosses.map((b,i) => { const days = Math.ceil((new Date(b.date) - new Date()) / (86400000)); const critical = days <= 20; const css = critical ? "border-red-500 bg-red-900/40 boss-shake threat-critical" : "bg-black/30 border-gray-700"; const icon = critical ? "⚠️ " : ""; return `<div class="flex justify-between text-xs mb-1 p-2 border rounded ${css}"><span class="${critical ? 'text-white font-bold' : 'text-gray-400'}">${icon}${b.name}</span><span class="${critical ? 'text-red-300' : 'text-gray-500'}">${days} DAYS</span><button onclick="delBoss(${i})" class="text-red-600">×</button></div>` }).join('');
         }
 
-        function buildHtml(t, i, type) {
-            let subs = '';
-            if(t.subtasks && t.subtasks.length > 0) {
-                subs = `<div class="bg-black/20 border-t border-gray-800 p-2 space-y-1">` + 
-                t.subtasks.map((s, si) => `
-                    <div class="flex items-center gap-2 pl-4 py-1 border-l border-gray-700 ml-2">
-                        <div onclick="toggleSub('${type}', ${i}, ${si})" class="task-checkbox w-3 h-3 border-gray-500 cursor-pointer ${s.done ? 'checked' : ''}"></div>
-                        <span class="text-xs text-gray-400 ${s.done ? 'line-through' : ''}">${s.text}</span>
-                        <button onclick="delSub('${type}', ${i}, ${si})" class="ml-auto text-[10px] text-red-900 hover:text-red-500">×</button>
-                    </div>`).join('') + `</div>`;
-            }
-            return `
-            <div class="task-item">
-                <div class="flex items-center p-3 gap-3">
-                    <div onclick="toggleTask('${type}', ${i})" class="task-checkbox ${t.done ? 'checked' : ''}">${t.done ? '✓' : ''}</div>
-                    <div class="flex-1">
-                        <div class="text-sm text-gray-200 font-bold ${t.done ? 'line-through opacity-50' : ''}">${t.text}</div>
-                        <div class="text-[10px] text-gray-500 font-bold">[${t.type}]</div>
-                    </div>
-                    <div class="flex gap-1">
-                        <button onclick="addSub('${type}', ${i})" class="text-[10px] border border-gray-600 text-gray-400 px-2 py-1 hover:bg-white hover:text-black rounded">SUB</button>
-                        <button onclick="deleteTask('${type}', ${i})" class="text-[10px] text-red-500 px-2">×</button>
-                    </div>
-                </div>
-                ${subs}
-            </div>`;
-        }
-
+        function buildHtml(t, i, type) { let subs = ''; if(t.subtasks && t.subtasks.length > 0) { subs = `<div class="bg-black/20 border-t border-gray-800 p-2 space-y-1">` + t.subtasks.map((s, si) => `<div class="flex items-center gap-2 pl-4 py-1 border-l border-gray-700 ml-2"><div onclick="toggleSub('${type}', ${i}, ${si})" class="task-checkbox w-3 h-3 border-gray-500 cursor-pointer ${s.done ? 'checked' : ''}"></div><span class="text-xs text-gray-400 ${s.done ? 'line-through' : ''}">${s.text}</span><button onclick="delSub('${type}', ${i}, ${si})" class="ml-auto text-[10px] text-red-900 hover:text-red-500">×</button></div>`).join('') + `</div>`; } return `<div class="task-item"><div class="flex items-center p-3 gap-3"><div onclick="toggleTask('${type}', ${i})" class="task-checkbox ${t.done ? 'checked' : ''}">${t.done ? '✓' : ''}</div><div class="flex-1"><div class="text-sm text-gray-200 font-bold ${t.done ? 'line-through opacity-50' : ''}">${t.text}</div><div class="text-[10px] text-gray-500 font-bold">[${t.type}]</div></div><div class="flex gap-1"><button onclick="addSub('${type}', ${i})" class="text-[10px] border border-gray-600 text-gray-400 px-2 py-1 hover:bg-white hover:text-black rounded">SUB</button><button onclick="deleteTask('${type}', ${i})" class="text-[10px] text-red-500 px-2">×</button></div></div>${subs}</div>`; }
         function togglePause() { isPaused = !isPaused; document.getElementById('pauseBtn').innerText = isPaused ? "RESUME" : "PAUSE"; }
         function addShopItem() { const n = prompt("Item:"); const c = parseInt(prompt("Cost:")); if(n&&c){ if(!db.shop) db.shop=[]; db.shop.push({name:n, cost:c}); save(); } }
         function delShopItem(i) { db.shop.splice(i,1); save(); }
