@@ -217,21 +217,20 @@
     <script>
         const firebaseConfig = {
             // ... PASTE YOUR FIREBASE CONFIG HERE ...
-                apiKey: "AIzaSyAuEWEdM6Niq6ATW_9pqjx-ThOEghOKcDk",
+            apiKey: "AIzaSyAuEWEdM6Niq6ATW_9pqjx-ThOEghOKcDk",
 
-  authDomain: "system-duo-40a99.firebaseapp.com",
+            authDomain: "system-duo-40a99.firebaseapp.com",
 
-  databaseURL: "https://system-duo-40a99-default-rtdb.firebaseio.com",
+            databaseURL: "https://system-duo-40a99-default-rtdb.firebaseio.com",
 
-  projectId: "system-duo-40a99",
+            projectId: "system-duo-40a99",
 
-  storageBucket: "system-duo-40a99.firebasestorage.app",
+            storageBucket: "system-duo-40a99.firebasestorage.app",
 
-  messagingSenderId: "78331174712",
+            messagingSenderId: "78331174712",
 
-  appId: "1:78331174712:web:cbd126b8d03ca1cd3a6bcd"
-
-
+            appId: "1:78331174712:web:cbd126b8d03ca1cd3
+      a6bcd"
         };
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const dbRef = firebase.database().ref();
@@ -251,4 +250,309 @@
             CURRENT_USER = u; PARTNER_USER = (u === 'p1' ? 'p2' : 'p1');
             const color = u === 'p1' ? '#06b6d4' : '#f472b6';
             const glow = u === 'p1' ? 'rgba(6, 182, 212, 0.6)' : 'rgba(244, 114, 182, 0.6)';
-            document.docume
+            document.documentElement.style.setProperty('--theme-main', color);
+            document.documentElement.style.setProperty('--theme-glow', glow);
+            document.getElementById('playerName').innerText = u === 'p1' ? "PLAYER 19" : "PLAYER 02";
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+
+            dbRef.child('players/'+u).on('value', snap => {
+                const val = snap.val();
+                if(val) { 
+                    db = val; 
+                    if(!db.dailies) db.dailies=[]; if(!db.quests) db.quests=[]; if(!db.shop) db.shop=[]; if(!db.bosses) db.bosses=[];
+                    if(!db.player.totalMin) db.player.totalMin = 0;
+                    render(); checkDeadlines(); checkLocalTimer(); checkLocalDungeon();
+                } else { save(); }
+            });
+
+            dbRef.child('players/'+PARTNER_USER).on('value', snap => {
+                const p = snap.val();
+                if(p) {
+                    document.getElementById('linkDot').classList.add('bg-green-500');
+                    document.getElementById('linkStatus').innerText = "LINKED";
+                    if(p.publicState && p.publicState.end > Date.now()) {
+                        document.getElementById('gateBanner').classList.remove('hidden');
+                        updatePartnerTimer(p.publicState.end);
+                    } else { document.getElementById('gateBanner').classList.add('hidden'); }
+                }
+            });
+
+            dbRef.child('notifications/' + CURRENT_USER).on('child_added', snap => {
+                const note = snap.val();
+                if(note) { showNotification(note.msg); snap.ref.remove(); }
+            });
+            dbRef.child('chats').limitToLast(20).on('child_added', snap => { renderChat(snap.val()); });
+        }
+
+        // --- DUNGEON LOGIC (FIXED VARIABLE NAME) ---
+        function openDungeonModal() { SFX.click(); document.getElementById('dungeonSetupModal').style.display='flex'; document.getElementById('dungeonInputContainer').innerHTML = ''; addDungeonInput(); }
+        function addDungeonInput() { const container = document.getElementById('dungeonInputContainer'); const div = document.createElement('div'); div.className = "flex gap-2"; div.innerHTML = `<input type="text" class="dungeon-input w-full bg-black/50 border border-gray-700 p-2 text-white text-xs outline-none focus:border-purple-500 rounded" placeholder="Objective..."><button onclick="this.parentElement.remove()" class="text-red-500 px-2">×</button>`; container.appendChild(div); }
+        
+        function confirmDungeon(mins) {
+            const inputs = document.querySelectorAll('.dungeon-input');
+            let tasks = [];
+            inputs.forEach(inp => { if(inp.value.trim()) tasks.push({text: inp.value.trim(), done: false}); });
+            if(tasks.length === 0) { alert("ADD OBJECTIVE"); return; }
+            
+            // CLEAN UP OLD TIMERS
+            if(gateTimerInt) clearInterval(gateTimerInt);
+            if(dungeonTimerInt) clearInterval(dungeonTimerInt);
+            
+            SFX.click(); document.getElementById('dungeonSetupModal').style.display='none';
+            const end = Date.now() + (mins * 60000);
+            activeDungeon = { tasks: tasks, endTime: end, totalMins: mins };
+            localStorage.setItem(`sys_${CURRENT_USER}_dungeon`, JSON.stringify(activeDungeon));
+            updatePublicState(end);
+            pushToPartner("ENTERED DUNGEON");
+            runDungeonUI();
+        }
+
+        function runDungeonUI() {
+            document.getElementById('redGateUI').classList.add('hidden');
+            document.getElementById('dungeonEntryPanel').classList.add('hidden');
+            document.getElementById('dungeonUI').classList.remove('hidden');
+            document.getElementById('actionPanel').classList.add('animate-dungeon');
+            
+            renderDungeonTasks();
+            
+            if(dungeonTimerInt) clearInterval(dungeonTimerInt);
+            dungeonTimerInt = setInterval(() => {
+                const diff = activeDungeon.endTime - Date.now();
+                if(diff <= 0) endDungeon(false); 
+                else {
+                    const m = Math.floor((diff/1000)/60).toString().padStart(2,'0');
+                    const s = Math.floor((diff/1000)%60).toString().padStart(2,'0');
+                    document.getElementById('dungeonTimerDisplay').innerText = `${m}:${s}`;
+                }
+            }, 1000);
+        }
+
+        function checkLocalDungeon() {
+            const saved = localStorage.getItem(`sys_${CURRENT_USER}_dungeon`);
+            if(saved) {
+                activeDungeon = JSON.parse(saved);
+                if(activeDungeon.endTime > Date.now()) { runDungeonUI(); } else { endDungeon(false); }
+            }
+        }
+
+        function renderDungeonTasks() {
+            const div = document.getElementById('dungeonTasks');
+            div.innerHTML = '';
+            activeDungeon.tasks.forEach((t, i) => {
+                div.innerHTML += `
+                <div onclick="toggleDungeonTask(${i})" class="p-2 border ${t.done ? 'border-green-500 bg-green-900/20' : 'border-purple-500 bg-black/40'} cursor-pointer flex items-center justify-between transition rounded">
+                    <span class="text-sm text-white ${t.done ? 'line-through opacity-50' : ''}">${t.text}</span>
+                    <div class="w-4 h-4 border border-white ${t.done ? 'bg-white' : ''}"></div>
+                </div>`;
+            });
+        }
+
+        function toggleDungeonTask(i) {
+            if(activeDungeon.tasks[i].done) return;
+            activeDungeon.tasks[i].done = true;
+            SFX.success();
+            localStorage.setItem(`sys_${CURRENT_USER}_dungeon`, JSON.stringify(activeDungeon));
+            renderDungeonTasks();
+            if(activeDungeon.tasks.every(t => t.done)) endDungeon(true);
+        }
+
+        function endDungeon(win) {
+            if(dungeonTimerInt) clearInterval(dungeonTimerInt);
+            localStorage.removeItem(`sys_${CURRENT_USER}_dungeon`);
+            updatePublicState(null);
+            
+            document.getElementById('actionPanel').classList.remove('animate-dungeon');
+            document.getElementById('redGateUI').classList.remove('hidden');
+            document.getElementById('dungeonEntryPanel').classList.remove('hidden');
+            document.getElementById('dungeonUI').classList.add('hidden');
+            
+            if(win) {
+                SFX.success(); 
+                gain(200, 100, 'INT');
+                db.player.totalMin = Number(db.player.totalMin) + Number(activeDungeon.totalMins);
+                alertMsg("DUNGEON CLEARED!");
+                pushToPartner("CONQUERED A DUNGEON");
+                save();
+            } else {
+                SFX.fail();
+                alertMsg("DUNGEON FAILED");
+            }
+            activeDungeon = null;
+        }
+
+        function giveUpDungeon() { if(confirm("Abandon Dungeon?")) endDungeon(false); }
+
+        // --- TIMER & WAKE LOCK ---
+        async function requestWakeLock() { try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) { console.log(err); } }
+
+        function startGate(mins) {
+            if(endTime) return;
+            if(!confirm("Start "+mins+"m?")) return;
+            SFX.click();
+            activeMins = mins;
+            endTime = Date.now() + (mins * 60000);
+            localStorage.setItem(`sys_${CURRENT_USER}_gate_end`, endTime);
+            localStorage.setItem(`sys_${CURRENT_USER}_gate_mins`, activeMins);
+            updatePublicState(endTime);
+            pushToPartner("STARTED A " + mins + "m GATE");
+            document.getElementById('actionPanel').classList.add('animate-danger');
+            requestWakeLock();
+            runTimer();
+        }
+
+        function checkLocalTimer() {
+            const savedEnd = localStorage.getItem(`sys_${CURRENT_USER}_gate_end`);
+            const savedMins = localStorage.getItem(`sys_${CURRENT_USER}_gate_mins`);
+            if (savedEnd && savedMins) {
+                const timeLeft = parseInt(savedEnd) - Date.now();
+                if (timeLeft > 0) {
+                    endTime = parseInt(savedEnd);
+                    activeMins = parseInt(savedMins);
+                    document.getElementById('actionPanel').classList.add('animate-danger');
+                    requestWakeLock();
+                    runTimer();
+                } else {
+                    activeMins = parseInt(savedMins);
+                    setTimeout(() => { completeGateLogic(); alertMsg("WELCOME BACK. GATE COMPLETE."); }, 1000);
+                }
+            }
+        }
+
+        function completeGateLogic() {
+            if(gateTimerInt) clearInterval(gateTimerInt);
+            if(wakeLock) wakeLock.release();
+            gain(activeMins * 5, activeMins * 2, 'INT');
+            db.player.totalMin = Number(db.player.totalMin) + Number(activeMins);
+            localStorage.removeItem(`sys_${CURRENT_USER}_gate_end`);
+            localStorage.removeItem(`sys_${CURRENT_USER}_gate_mins`);
+            resetGate();
+            save();
+            pushToPartner("COMPLETED A GATE");
+            showNotification("GATE COMPLETE");
+        }
+
+        function runTimer() {
+            if(gateTimerInt) clearInterval(gateTimerInt);
+            document.getElementById('preGate').classList.add('hidden');
+            document.getElementById('activeGate').classList.remove('hidden');
+            document.getElementById('activeGate').classList.add('flex');
+            
+            gateTimerInt = setInterval(() => {
+                const now = Date.now();
+                if(!isPaused) {
+                    const diff = endTime - now;
+                    if(diff <= 0) { completeGateLogic(); alertMsg("GATE CLEARED"); } 
+                    else {
+                        const m = Math.floor((diff/1000)/60).toString().padStart(2,'0');
+                        const s = Math.floor((diff/1000)%60).toString().padStart(2,'0');
+                        document.getElementById('timerDisplay').innerText = `${m}:${s}`;
+                    }
+                }
+            }, 1000);
+        }
+
+        function resetGate() {
+            endTime = null; updatePublicState(null);
+            document.getElementById('timerDisplay').innerText = "00:00";
+            document.getElementById('preGate').classList.remove('hidden');
+            document.getElementById('activeGate').classList.add('hidden');
+            document.getElementById('activeGate').classList.remove('flex');
+            document.getElementById('actionPanel').classList.remove('animate-danger');
+        }
+
+        function giveUp() { 
+            if(gateTimerInt) clearInterval(gateTimerInt); if(wakeLock) wakeLock.release();
+            localStorage.removeItem(`sys_${CURRENT_USER}_gate_end`);
+            localStorage.removeItem(`sys_${CURRENT_USER}_gate_mins`);
+            resetGate(); db.player.gold -= 50; alertMsg("FAILED -50G"); 
+            pushToPartner("FAILED A GATE"); save(); 
+        }
+
+        // --- DATA ---
+        function openModal(type) { currentType = type; document.getElementById('modalOverlay').style.display='flex'; }
+        function confirmAddTask(attr) {
+            const txt = document.getElementById('modalInput').value; if(!txt) return;
+            const newTask = { text: txt, type: attr, done: false, subtasks: [] };
+            if(currentType === 'daily') db.dailies.push(newTask); else db.quests.push(newTask);
+            document.getElementById('modalOverlay').style.display='none'; document.getElementById('modalInput').value=''; save();
+        }
+
+        function getLevelConfig(lvl) {
+            if (lvl <= 10) return { rank: 'E', max: 800 }; if (lvl <= 20) return { rank: 'D', max: 1200 };
+            if (lvl <= 30) return { rank: 'C', max: 1600 }; if (lvl <= 40) return { rank: 'B', max: 2000 };
+            return { rank: 'S', max: 3000 };
+        }
+
+        function gain(xp, gold, stat) {
+            if(!db.player.stats) db.player.stats = {STR:0, INT:0, DIS:0};
+            db.player.gold += gold;
+            if(db.player.stats[stat] === undefined) db.player.stats[stat] = 0;
+            if(xp > 0) db.player.stats[stat]++; else db.player.stats[stat] = Math.max(0, db.player.stats[stat] - 1);
+            const config = getLevelConfig(db.player.lvl);
+            db.player.xpMax = config.max; db.player.xp += xp;
+            if(db.player.xp >= db.player.xpMax) { db.player.lvl++; db.player.xp = 0; alertMsg("LEVEL UP! RANK " + getLevelConfig(db.player.lvl).rank); SFX.success(); pushToPartner("LEVEL UP: " + db.player.lvl); } 
+            else if (db.player.xp < 0) { if (db.player.lvl > 1) { db.player.lvl--; db.player.xp = db.player.xpMax + db.player.xp; alertMsg("LEVEL DOWN!"); SFX.fail(); } else { db.player.xp = 0; } }
+            save();
+        }
+
+        function toggleTask(type, i) {
+            const list = type === 'daily' ? db.dailies : db.quests; list[i].done = !list[i].done;
+            if(list[i].done) { SFX.success(); gain(20, 10, list[i].type); pushToPartner("COMPLETED: " + list[i].text); if(type === 'quest') { setTimeout(()=>{ list.splice(i, 1); save(); }, 500); } } 
+            else { SFX.fail(); gain(-20, -10, list[i].type); }
+            save();
+        }
+
+        function addSub(type, i) { const txt = prompt("Subtask:"); if(!txt) return; const list = type === 'daily' ? db.dailies : db.quests; if(!list[i].subtasks) list[i].subtasks = []; list[i].subtasks.push({text: txt, done: false}); save(); }
+        function toggleSub(type, i, si) { const list = type === 'daily' ? db.dailies : db.quests; list[i].subtasks[si].done = !list[i].subtasks[si].done; save(); }
+        function delSub(type, i, si) { const list = type === 'daily' ? db.dailies : db.quests; list[i].subtasks.splice(si, 1); save(); }
+        function deleteTask(type, i) { if(confirm("Delete?")) { const list = type === 'daily' ? db.dailies : db.quests; list.splice(i, 1); save(); } }
+
+        function render() {
+            const config = getLevelConfig(db.player.lvl);
+            document.getElementById('rankBadge').innerText = config.rank;
+            document.getElementById('lvl').innerText = db.player.lvl;
+            document.getElementById('xp').innerText = db.player.xp + " / " + config.max;
+            document.getElementById('valSTR').innerText = db.player.stats.STR || 0;
+            document.getElementById('valINT').innerText = db.player.stats.INT || 0;
+            document.getElementById('valDIS').innerText = db.player.stats.DIS || 0;
+            document.getElementById('valGOLD').innerText = db.player.gold || 0;
+            document.getElementById('xpBar').style.width = Math.min(100, (db.player.xp / config.max)*100) + '%';
+            document.getElementById('totalHours').innerText = ((db.player.totalMin || 0) / 60).toFixed(1);
+            document.getElementById('dailyList').innerHTML = db.dailies.map((t,i) => buildHtml(t,i,'daily')).join('');
+            document.getElementById('questList').innerHTML = db.quests.map((t,i) => buildHtml(t,i,'quest')).join('');
+            document.getElementById('shopList').innerHTML = db.shop.map((item,i) => `<div class="flex justify-between items-center bg-black/20 p-2 mb-1 border border-gray-700 hover:border-theme rounded"><span class="text-xs text-gray-300">${item.name}</span><div class="flex gap-2"><span class="text-xs text-yellow-400 font-bold">${item.cost}G</span><button onclick="buyItem(${i})" class="text-[10px] text-theme border border-theme px-1 rounded">BUY</button><button onclick="delShopItem(${i})" class="text-[10px] text-red-500">×</button></div></div>`).join('');
+            document.getElementById('bossList').innerHTML = db.bosses.map((b,i) => { const days = Math.ceil((new Date(b.date) - new Date()) / (86400000)); const critical = days <= 20; const css = critical ? "border-red-500 bg-red-900/40 boss-shake threat-critical" : "bg-black/30 border-gray-700"; const icon = critical ? "⚠️ " : ""; return `<div class="flex justify-between text-xs mb-1 p-2 border rounded ${css}"><span class="${critical ? 'text-white font-bold' : 'text-gray-400'}">${icon}${b.name}</span><span class="${critical ? 'text-red-300' : 'text-gray-500'}">${days} DAYS</span><button onclick="delBoss(${i})" class="text-red-600">×</button></div>` }).join('');
+        }
+
+        function buildHtml(t, i, type) {
+            let subs = '';
+            if(t.subtasks && t.subtasks.length > 0) {
+                subs = `<div class="bg-black/20 border-t border-gray-800 p-2 space-y-1">` + 
+                t.subtasks.map((s, si) => `<div class="flex items-center gap-2 pl-4 py-1 border-l border-gray-700 ml-2"><div onclick="toggleSub('${type}', ${i}, ${si})" class="task-checkbox w-3 h-3 border-gray-500 cursor-pointer ${s.done ? 'checked' : ''}"></div><span class="text-xs text-gray-400 ${s.done ? 'line-through' : ''}">${s.text}</span><button onclick="delSub('${type}', ${i}, ${si})" class="ml-auto text-[10px] text-red-900 hover:text-red-500">×</button></div>`).join('') + `</div>`;
+            }
+            return `<div class="task-item"><div class="flex items-center p-3 gap-3"><div onclick="toggleTask('${type}', ${i})" class="task-checkbox ${t.done ? 'checked' : ''}">${t.done ? '✓' : ''}</div><div class="flex-1"><div class="text-sm text-gray-200 font-bold ${t.done ? 'line-through opacity-50' : ''}">${t.text}</div><div class="text-[10px] text-gray-500 font-bold">[${t.type}]</div></div><div class="flex gap-1"><button onclick="addSub('${type}', ${i})" class="text-[10px] border border-gray-600 text-gray-400 px-2 py-1 hover:bg-white hover:text-black rounded">SUB</button><button onclick="deleteTask('${type}', ${i})" class="text-[10px] text-red-500 px-2">×</button></div></div>${subs}</div>`;
+        }
+
+        function togglePause() { isPaused = !isPaused; document.getElementById('pauseBtn').innerText = isPaused ? "RESUME" : "PAUSE"; }
+        function addShopItem() { const n = prompt("Item:"); const c = parseInt(prompt("Cost:")); if(n&&c){ if(!db.shop) db.shop=[]; db.shop.push({name:n, cost:c}); save(); } }
+        function delShopItem(i) { db.shop.splice(i,1); save(); }
+        function buyItem(i) { if(db.player.gold >= db.shop[i].cost) { db.player.gold -= db.shop[i].cost; alertMsg("BOUGHT "+db.shop[i].name); pushToPartner("BOUGHT ITEM: " + db.shop[i].name); save(); } else { alertMsg("NO GOLD"); } }
+        function addBoss() { const n=prompt("Name"); const d=prompt("Date YYYY-MM-DD"); if(n&&d){ if(!db.bosses) db.bosses=[]; db.bosses.push({name:n, date:d}); save(); } }
+        function delBoss(i) { db.bosses.splice(i,1); save(); }
+        function sendChat() { const txt = document.getElementById('chatIn').value; if(!txt) return; dbRef.child('chats').push({ user: CURRENT_USER, text: txt, ts: Date.now() }); pushToPartner("NEW MESSAGE"); document.getElementById('chatIn').value = ''; }
+        function save() { if(CURRENT_USER) dbRef.child('players/'+CURRENT_USER).set(db); render(); }
+        function updatePublicState(end) { if(CURRENT_USER) dbRef.child('players/'+CURRENT_USER+'/publicState').update({end: end}); }
+        function updatePartnerTimer(end) { const int = setInterval(() => { const d = end - Date.now(); if(d>0) { const m = Math.floor((d/1000)/60); const s = Math.floor((d/1000)%60); document.getElementById('gateTimer').innerText = `${m}:${s}`; document.getElementById('bigGateTimer').innerText = `${m}:${s}`; } else { document.getElementById('gateStatus').classList.add('hidden'); document.getElementById('gateBanner').classList.add('hidden'); clearInterval(int); } }, 1000); }
+        function pushToPartner(msg) { dbRef.child('notifications/' + PARTNER_USER).push({ msg: msg, ts: Date.now() }); }
+        function sendTestNotif() { pushToPartner("TEST SIGNAL RECEIVED"); alertMsg("Signal Sent to Partner"); }
+        function performRebirth() { if(!confirm("⚠️ WARNING: REBIRTH? ⚠️\n\nReset Level, XP, Gold, Stats & Hours?")) return; db.player = { lvl: 1, xp: 0, xpMax: 800, gold: 0, stats: {STR:0, INT:0, DIS:0}, totalMin: 0 }; save(); alertMsg("REBIRTH SUCCESSFUL"); SFX.success(); }
+        function alertMsg(msg) { document.getElementById('alertMsg').innerText = msg; document.getElementById('alertOverlay').style.display = 'flex'; SFX.notif(); }
+        function requestNotif() { Notification.requestPermission(); }
+        function showNotification(msg) { SFX.notif(); document.getElementById('notifText').innerText=msg; document.getElementById('notifToast').style.display='flex'; setTimeout(()=>document.getElementById('notifToast').style.display='none', 4000); if(Notification.permission === 'granted') new Notification("SYSTEM", {body: msg}); }
+        function checkDeadlines() { if(!db.bosses) return; db.bosses.forEach(b => { const days = Math.ceil((new Date(b.date) - new Date()) / (86400000)); if(days <= 3 && days >= 0) showNotification(`⚠️ WARNING: ${b.name} IN ${days} DAYS`); }); }
+        function handleImageUpload(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = function(e) { const img = new Image(); img.onload = function() { const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); const maxWidth = 600; let width = img.width; let height = img.height; if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; } canvas.width = width; canvas.height = height; ctx.drawImage(img, 0, 0, width, height); const dataUrl = canvas.toDataURL('image/jpeg', 0.5); dbRef.child('chats').push({ user: CURRENT_USER, text: "IMG::" + dataUrl, ts: Date.now() }); pushToPartner("SENT AN IMAGE"); SFX.click(); }; img.src = e.target.result; }; reader.readAsDataURL(file); }
+        function renderChat(msg) { const box = document.getElementById('chatBox'); const div = document.createElement('div'); div.className = `msg ${msg.user === CURRENT_USER ? 'msg-me' : 'msg-partner'}`; if(msg.text.startsWith("IMG::")) { const url = msg.text.split("IMG::")[1]; div.innerHTML = `<img src="${url}" class="rounded border border-gray-600 mt-1 max-h-40 object-cover cursor-pointer" onclick="window.open(this.src)">`; } else { div.innerText = msg.text; } box.appendChild(div); box.scrollTop = box.scrollHeight; }
+    </script>
+</body>
+</html>
